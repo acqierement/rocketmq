@@ -231,6 +231,7 @@ public class RouteInfoManager {
         final Channel channel) {
         RegisterBrokerResult result = new RegisterBrokerResult();
         try {
+            // 加写锁
             this.lock.writeLock().lockInterruptibly();
 
             //init or update the cluster info
@@ -240,6 +241,7 @@ public class RouteInfoManager {
             boolean registerFirst = false;
 
             BrokerData brokerData = this.brokerAddrTable.get(brokerName);
+            // 首次注册
             if (null == brokerData) {
                 registerFirst = true;
                 brokerData = new BrokerData(clusterName, brokerName, new HashMap<>());
@@ -254,10 +256,10 @@ public class RouteInfoManager {
 
             boolean isMinBrokerIdChanged = false;
             long prevMinBrokerId = 0;
+            // 判断最小id是否变化
             if (!brokerAddrsMap.isEmpty()) {
                 prevMinBrokerId = Collections.min(brokerAddrsMap.keySet());
             }
-
             if (brokerId < prevMinBrokerId) {
                 isMinBrokerIdChanged = true;
             }
@@ -297,7 +299,7 @@ public class RouteInfoManager {
             boolean isMaster = MixAll.MASTER_ID == brokerId;
             boolean isPrimeSlave = !isOldVersionBroker && !isMaster
                 && brokerId == Collections.min(brokerAddrsMap.keySet());
-
+            // 如果是主节点，或者当主节点没了，是最主要的子节点。需要创建QueueData
             if (null != topicConfigWrapper && (isMaster || isPrimeSlave)) {
 
                 ConcurrentMap<String, TopicConfig> tcTable =
@@ -312,6 +314,7 @@ public class RouteInfoManager {
                                 // Wipe write perm for prime slave
                                 topicConfig.setPerm(topicConfig.getPerm() & (~PermName.PERM_WRITE));
                             }
+                            // 更新topicQueueTable
                             this.createAndUpdateQueueData(brokerName, topicConfig);
                         }
                     }
@@ -333,6 +336,7 @@ public class RouteInfoManager {
             }
 
             BrokerAddrInfo brokerAddrInfo = new BrokerAddrInfo(clusterName, brokerAddr);
+            // 直接更新当前的broker存活时间
             BrokerLiveInfo prevBrokerLiveInfo = this.brokerLiveTable.put(brokerAddrInfo,
                 new BrokerLiveInfo(
                     System.currentTimeMillis(),
@@ -364,6 +368,7 @@ public class RouteInfoManager {
                 }
             }
 
+            // 如果主从变化了，通知所有客户端
             if (isMinBrokerIdChanged && namesrvConfig.isNotifyMinBrokerIdChanged()) {
                 notifyMinBrokerIdChanged(brokerAddrsMap, null,
                     this.brokerLiveTable.get(brokerAddrInfo).getHaServerAddr());
@@ -539,7 +544,7 @@ public class RouteInfoManager {
                 final String clusterName = unRegisterRequest.getClusterName();
 
                 BrokerAddrInfo brokerAddrInfo = new BrokerAddrInfo(clusterName, unRegisterRequest.getBrokerAddr());
-
+                // 从心跳移除
                 BrokerLiveInfo brokerLiveInfo = this.brokerLiveTable.remove(brokerAddrInfo);
                 log.info("unregisterBroker, remove from brokerLiveTable {}, {}",
                     brokerLiveInfo != null ? "OK" : "Failed",
@@ -550,6 +555,7 @@ public class RouteInfoManager {
 
                 boolean removeBrokerName = false;
                 boolean isMinBrokerIdChanged = false;
+                // 更新borker信息
                 BrokerData brokerData = this.brokerAddrTable.get(brokerName);
                 if (null != brokerData) {
                     if (!brokerData.getBrokerAddrs().isEmpty() &&
@@ -595,8 +601,9 @@ public class RouteInfoManager {
                 }
             }
 
+            // 整个broker下线进行处理
             cleanTopicByUnRegisterRequests(removedBroker, reducedBroker);
-
+            // 通知发生了主从切换
             if (!needNotifyBrokerMap.isEmpty() && namesrvConfig.isNotifyMinBrokerIdChanged()) {
                 notifyMinBrokerIdChanged(needNotifyBrokerMap);
             }
@@ -788,6 +795,7 @@ public class RouteInfoManager {
         if (brokerAddrInfo != null) {
             try {
                 try {
+                    // 加上写锁
                     this.lock.readLock().lockInterruptibly();
                     needUnRegister = setupUnRegisterRequest(unRegisterRequest, brokerAddrInfo);
                 } finally {
@@ -799,6 +807,7 @@ public class RouteInfoManager {
         }
 
         if (needUnRegister) {
+            // 这里会提交到队列
             boolean result = this.submitUnRegisterBrokerRequest(unRegisterRequest);
             log.info("the broker's channel destroyed, submit the unregister request at once, " +
                 "broker info: {}, submit result: {}", unRegisterRequest, result);
