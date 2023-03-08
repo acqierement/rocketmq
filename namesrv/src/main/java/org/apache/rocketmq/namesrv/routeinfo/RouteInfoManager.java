@@ -676,6 +676,7 @@ public class RouteInfoManager {
             this.lock.readLock().lockInterruptibly();
             Map<String, QueueData> queueDataMap = this.topicQueueTable.get(topic);
             if (queueDataMap != null) {
+                // 查询到的queueDatas
                 topicRouteData.setQueueDatas(new ArrayList<>(queueDataMap.values()));
                 foundQueueData = true;
 
@@ -690,12 +691,13 @@ public class RouteInfoManager {
                         brokerData.getBrokerName(),
                         (HashMap<Long, String>) brokerData.getBrokerAddrs().clone(),
                         brokerData.isEnableActingMaster(), brokerData.getZoneName());
-
+                    // 保存brokerDatas
                     brokerDataList.add(brokerDataClone);
                     foundBrokerData = true;
                     if (filterServerTable.isEmpty()) {
                         continue;
                     }
+                    // 查询filterServer
                     for (final String brokerAddr : brokerDataClone.getBrokerAddrs().values()) {
                         BrokerAddrInfo brokerAddrInfo = new BrokerAddrInfo(brokerDataClone.getCluster(), brokerAddr);
                         List<String> filterServerList = this.filterServerTable.get(brokerAddrInfo);
@@ -712,6 +714,7 @@ public class RouteInfoManager {
 
         log.debug("pickupTopicRouteData {} {}", topic, topicRouteData);
 
+        // 后半段主要是判断一下是否需要切换master
         if (foundBrokerData && foundQueueData) {
 
             if (topicRouteData == null) {
