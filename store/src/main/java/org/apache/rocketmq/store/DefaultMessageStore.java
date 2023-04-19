@@ -710,7 +710,7 @@ public class DefaultMessageStore implements MessageStore {
         GetMessageResult getResult = new GetMessageResult();
 
         final long maxOffsetPy = this.commitLog.getMaxOffset();
-
+        //找到对应的 ConsumeQueue
         ConsumeQueueInterface consumeQueue = findConsumeQueue(topic, queueId);
         if (consumeQueue != null) {
             minOffset = consumeQueue.getMinOffsetInQueue();
@@ -778,6 +778,7 @@ public class DefaultMessageStore implements MessageStore {
 
                             maxPhyOffsetPulling = offsetPy;
 
+                            // 更新 offset
                             //Be careful, here should before the isTheBatchFull
                             nextBeginOffset = cqUnit.getQueueOffset() + cqUnit.getBatchNum();
 

@@ -482,7 +482,7 @@ public class BrokerOuterAPI {
                     }
                 });
             }
-
+            // 这里用countDownLatch记录了一下执行时间超时的情况
             try {
                 if (!countDownLatch.await(timeoutMills, TimeUnit.MILLISECONDS)) {
                     LOGGER.warn("Registration to one or more name servers does NOT complete within deadline. Timeout threshold: {}ms", timeoutMills);

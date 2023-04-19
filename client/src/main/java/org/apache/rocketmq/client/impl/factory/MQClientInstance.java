@@ -597,6 +597,7 @@ public class MQClientInstance {
                 try {
                     TopicRouteData topicRouteData;
                     if (isDefault && defaultMQProducer != null) {
+                        // 从nameServer获取topciRouteData
                         topicRouteData = this.mQClientAPIImpl.getDefaultTopicRouteInfoFromNameServer(defaultMQProducer.getCreateTopicKey(),
                             clientConfig.getMqClientApiTimeout());
                         if (topicRouteData != null) {
@@ -621,6 +622,7 @@ public class MQClientInstance {
                         if (changed) {
 
                             for (BrokerData bd : topicRouteData.getBrokerDatas()) {
+                                // 更新brokerAddrTable
                                 this.brokerAddrTable.put(bd.getBrokerName(), bd.getBrokerAddrs());
                             }
 
@@ -634,11 +636,13 @@ public class MQClientInstance {
 
                             // Update Pub info
                             {
+                                // 生成topicPublishInfo
                                 TopicPublishInfo publishInfo = topicRouteData2TopicPublishInfo(topic, topicRouteData);
                                 publishInfo.setHaveTopicRouterInfo(true);
                                 for (Entry<String, MQProducerInner> entry : this.producerTable.entrySet()) {
                                     MQProducerInner impl = entry.getValue();
                                     if (impl != null) {
+                                        // 更新 topicPublishInfo
                                         impl.updateTopicPublishInfo(topic, publishInfo);
                                     }
                                 }

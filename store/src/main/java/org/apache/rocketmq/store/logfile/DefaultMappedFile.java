@@ -537,6 +537,7 @@ public class DefaultMappedFile extends AbstractMappedFile {
         ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
         int flush = 0;
         long time = System.currentTimeMillis();
+        //通过写入 1G 的字节 0 来让操作系统分配物理内存空间，如果没有填充值，操作系统不会实际分配物理内存，防止在写入消息时发生缺页异常
         for (int i = 0, j = 0; i < this.fileSize; i += DefaultMappedFile.OS_PAGE_SIZE, j++) {
             byteBuffer.put(i, (byte) 0);
             // force flush when flush disk type is sync
@@ -546,7 +547,7 @@ public class DefaultMappedFile extends AbstractMappedFile {
                     mappedByteBuffer.force();
                 }
             }
-
+            // 这里就是每隔一段时间sleep一下，这样让其他线程有执行的机会，这其中也包括gc线程，让gc线程有机会在循环的中途可以执行gc。避免很久才执行一次gc
             // prevent gc
             if (j % 1000 == 0) {
                 log.info("j={}, costTime={}", j, System.currentTimeMillis() - time);
@@ -669,11 +670,13 @@ public class DefaultMappedFile extends AbstractMappedFile {
         final long address = ((DirectBuffer) (this.mappedByteBuffer)).address();
         Pointer pointer = new Pointer(address);
         {
+            // 通过系统调用 mlock 锁定该文件的 Page Cache，防止其被交换到 swap 空间
             int ret = LibC.INSTANCE.mlock(pointer, new NativeLong(this.fileSize));
             log.info("mlock {} {} {} ret = {} time consuming = {}", address, this.fileName, this.fileSize, ret, System.currentTimeMillis() - beginTime);
         }
 
         {
+            // 通过系统调用 madvise 给操作系统建议，说明该文件在不久的将来要被访问
             int ret = LibC.INSTANCE.madvise(pointer, new NativeLong(this.fileSize), LibC.MADV_WILLNEED);
             log.info("madvise {} {} {} ret = {} time consuming = {}", address, this.fileName, this.fileSize, ret, System.currentTimeMillis() - beginTime);
         }
